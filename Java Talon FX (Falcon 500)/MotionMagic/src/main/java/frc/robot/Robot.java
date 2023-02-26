@@ -59,25 +59,36 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.DutyCycleEncoder;
 import edu.wpi.first.wpilibj.Joystick;
 
+import com.ctre.phoenix.motorcontrol.can.TalonFX;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonFX;
 import com.ctre.phoenix.motorcontrol.TalonFXControlMode;
 import com.ctre.phoenix.motorcontrol.TalonFXFeedbackDevice;
+import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
 
 import frc.robot.sim.PhysicsSim;
 
 public class Robot extends TimedRobot {
 
+	XboxController xbox;
+
 	/* Setpoints */
-	double m_targetMin = 33;
-	double m_targetMax = -19.6;
+	double m_targetMin = 218794;
+	double m_targetMax = 0;
 
 	/* Hardware */
-	WPI_TalonFX _talon = new WPI_TalonFX(15, "rio"); // Rename "rio" to match the CANivore device name if using a CANivore
+	TalonFX leftExtMotor = new TalonFX(2);
+	TalonFX rightExtMotor = new TalonFX(13);
+	TalonFX angMotor = new TalonFX(15); // Rename "rio" to match the CANivore device name if using a CANivore
 	Joystick _joy = new Joystick(0);
+	DutyCycleEncoder extEncoder = new DutyCycleEncoder(9);
+
 
 	/* Used to build string throughout loop */
 	StringBuilder _sb = new StringBuilder();
@@ -89,7 +100,7 @@ public class Robot extends TimedRobot {
 	int _pov = -1;
 
 	public void simulationInit() {
-		PhysicsSim.getInstance().addTalonFX(_talon, 0.5, 5100);
+		PhysicsSim.getInstance().addTalonFX(angMotor, 0.5, 5100);
 	}
 	public void simulationPeriodic() {
 		PhysicsSim.getInstance().run();
@@ -97,23 +108,30 @@ public class Robot extends TimedRobot {
 
 	public void robotInit() {
 		/* Factory default hardware to prevent unexpected behavior */
-		_talon.configFactoryDefault();
+		leftExtMotor.setInverted(true);
+		rightExtMotor.setInverted(false);
+
+		leftExtMotor.setNeutralMode(NeutralMode.Brake);
+		rightExtMotor.setNeutralMode(NeutralMode.Brake);
+		angMotor.setNeutralMode(NeutralMode.Brake);
+
+		angMotor.configFactoryDefault();
 
 		/* Configure Sensor Source for Pirmary PID */
-		_talon.configSelectedFeedbackSensor(TalonFXFeedbackDevice.IntegratedSensor, Constants.kPIDLoopIdx,
+		angMotor.configSelectedFeedbackSensor(TalonFXFeedbackDevice.IntegratedSensor, Constants.kPIDLoopIdx,
 				Constants.kTimeoutMs);
 
 		/* set deadband to super small 0.001 (0.1 %).
 			The default deadband is 0.04 (4 %) */
-		_talon.configNeutralDeadband(0.001, Constants.kTimeoutMs);
+		angMotor.configNeutralDeadband(0.001, Constants.kTimeoutMs);
 
 		/**
 		 * Configure Talon FX Output and Sensor direction accordingly Invert Motor to
 		 * have green LEDs when driving Talon Forward / Requesting Postiive Output Phase
 		 * sensor to have positive increment when driving Talon Forward (Green LED)
 		 */
-		_talon.setSensorPhase(false);
-		_talon.setInverted(false);
+		angMotor.setSensorPhase(false);
+		angMotor.setInverted(false);
 		/*
 		 * Talon FX does not need sensor phase set for its integrated sensor
 		 * This is because it will always be correct if the selected feedback device is integrated sensor (default value)
@@ -124,32 +142,32 @@ public class Robot extends TimedRobot {
         // _talon.setSensorPhase(true);
 
 		/* Set relevant frame periods to be at least as fast as periodic rate */
-		_talon.setStatusFramePeriod(StatusFrameEnhanced.Status_13_Base_PIDF0, 10, Constants.kTimeoutMs);
-		_talon.setStatusFramePeriod(StatusFrameEnhanced.Status_10_MotionMagic, 10, Constants.kTimeoutMs);
+		angMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_13_Base_PIDF0, 10, Constants.kTimeoutMs);
+		angMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_10_MotionMagic, 10, Constants.kTimeoutMs);
 
 		/* Set the peak and nominal outputs */
-		_talon.configNominalOutputForward(0, Constants.kTimeoutMs);
-		_talon.configNominalOutputReverse(0, Constants.kTimeoutMs);
-		_talon.configPeakOutputForward(1, Constants.kTimeoutMs);
-		_talon.configPeakOutputReverse(-1, Constants.kTimeoutMs);
+		angMotor.configNominalOutputForward(0, Constants.kTimeoutMs);
+		angMotor.configNominalOutputReverse(0, Constants.kTimeoutMs);
+		angMotor.configPeakOutputForward(1, Constants.kTimeoutMs);
+		angMotor.configPeakOutputReverse(-1, Constants.kTimeoutMs);
 
 		/* Set Motion Magic gains in slot0 - see documentation */
-		_talon.selectProfileSlot(Constants.kSlotIdx, Constants.kPIDLoopIdx);
-		_talon.config_kF(Constants.kSlotIdx, Constants.kGains.kF, Constants.kTimeoutMs);
-		_talon.config_kP(Constants.kSlotIdx, Constants.kGains.kP, Constants.kTimeoutMs);
-		_talon.config_kI(Constants.kSlotIdx, Constants.kGains.kI, Constants.kTimeoutMs);
-		_talon.config_kD(Constants.kSlotIdx, Constants.kGains.kD, Constants.kTimeoutMs);
+		angMotor.selectProfileSlot(Constants.kSlotIdx, Constants.kPIDLoopIdx);
+		angMotor.config_kF(Constants.kSlotIdx, Constants.kGains.kF, Constants.kTimeoutMs);
+		angMotor.config_kP(Constants.kSlotIdx, Constants.kGains.kP, Constants.kTimeoutMs);
+		angMotor.config_kI(Constants.kSlotIdx, Constants.kGains.kI, Constants.kTimeoutMs);
+		angMotor.config_kD(Constants.kSlotIdx, Constants.kGains.kD, Constants.kTimeoutMs);
 
 		/* Set acceleration and vcruise velocity - see documentation */
-		_talon.configMotionCruiseVelocity(0, Constants.kTimeoutMs);
-		_talon.configMotionAcceleration(0, Constants.kTimeoutMs);
+		angMotor.configMotionCruiseVelocity(0, Constants.kTimeoutMs);
+		angMotor.configMotionAcceleration(0, Constants.kTimeoutMs);
 
 		/* Zero the sensor once on robot boot up */
 		//_talon.setSelectedSensorPosition(0, Constants.kPIDLoopIdx, Constants.kTimeoutMs);
 
-		_talon.configFeedbackNotContinuous(true, Constants.kTimeoutMs);
+		angMotor.configFeedbackNotContinuous(true, Constants.kTimeoutMs);
 
-		_talon.config_IntegralZone(Constants.kSlotIdx, 3);
+		angMotor.config_IntegralZone(Constants.kSlotIdx, 3);
 		
 	}
 
@@ -164,17 +182,33 @@ public class Robot extends TimedRobot {
 		if (Math.abs(rghtYstick) < 0.10) { rghtYstick = 0; } /* deadband 10% */
 
 		/* Get current Talon FX motor output */
-		double motorOutput = _talon.getMotorOutputPercent();
+		double motorOutput = angMotor.getMotorOutputPercent();
 
 		/* Prepare line to print */
 		_sb.append("\tOut%:");
 		_sb.append(motorOutput);
 		_sb.append("\tVel:");
-		_sb.append(_talon.getSelectedSensorVelocity(Constants.kPIDLoopIdx));
+		_sb.append(angMotor.getSelectedSensorVelocity(Constants.kPIDLoopIdx));
 
 		_sb.append("\t Position:");
-		_sb.append(_talon.getSelectedSensorPosition());
-		SmartDashboard.putNumber("Lift Position", _talon.getSelectedSensorPosition());
+		_sb.append(angMotor.getSelectedSensorPosition());
+		SmartDashboard.putNumber("Lift Position", angMotor.getSelectedSensorPosition());
+
+		/* Arbirrary Feed Forward */
+		//double horizontalHoldOutput = 0;
+		//double arbfeedFwdTerm = getFeedForward(horizontalHoldOutput);
+
+		/* Slide Extension */
+			/*if (xbox.getRightY()) {
+	  
+				extendArmUsingPowerNoLimit(-xbox.getRightY() / 1);
+				resetExtensionEncoder();
+		
+			} else {
+		
+				extendArmUsingPower(-xbox.getRightY() / 1);
+		
+			}*/
 
 
 		/**
@@ -186,34 +220,34 @@ public class Robot extends TimedRobot {
 
 			/* 2048 ticks/rev * 10 Rotations in either direction */
 			double targetPos = m_targetMin;
-			_talon.set(TalonFXControlMode.MotionMagic, targetPos);
+			angMotor.set(TalonFXControlMode.MotionMagic, targetPos);
 
 			/* Append more signals to print when in speed mode */
 			_sb.append("\terr:");
-			_sb.append(_talon.getClosedLoopError(Constants.kPIDLoopIdx));
+			_sb.append(angMotor.getClosedLoopError(Constants.kPIDLoopIdx));
 			_sb.append("\ttrg:");
 			_sb.append(targetPos);
 
 		} else if (_joy.getRawButton(4)) {
 		
 			double targetPos = m_targetMax;
-			_talon.set(TalonFXControlMode.MotionMagic, targetPos);
+			angMotor.set(TalonFXControlMode.MotionMagic, targetPos);
 
 			/* Append more signals to print when in speed mode */
 			_sb.append("\terr:");
-			_sb.append(_talon.getClosedLoopError(Constants.kPIDLoopIdx));
+			_sb.append(angMotor.getClosedLoopError(Constants.kPIDLoopIdx));
 			_sb.append("\ttrg:");
 			_sb.append(targetPos);
 			
 		} else {
 			/* Percent Output */
 
-			_talon.set(TalonFXControlMode.PercentOutput, leftYstick);
+			angMotor.set(TalonFXControlMode.PercentOutput, leftYstick);
 		}
-		
+
 		if (_joy.getRawButton(2)) {
 			/* Zero sensor positions */
-			_talon.setSelectedSensorPosition(0);
+			angMotor.setSelectedSensorPosition(0);
 		}
 
 		int pov = _joy.getPOV();
@@ -224,7 +258,7 @@ public class Robot extends TimedRobot {
 			_smoothing--;
 			if (_smoothing < 0)
 				_smoothing = 0;
-			_talon.configMotionSCurveStrength(_smoothing);
+			angMotor.configMotionSCurveStrength(_smoothing);
 
 			System.out.println("Smoothing is set to: " + _smoothing);
 		} else if (_pov == 0) { // D-Pad up
@@ -232,13 +266,65 @@ public class Robot extends TimedRobot {
 			_smoothing++;
 			if (_smoothing > 8)
 				_smoothing = 8;
-			_talon.configMotionSCurveStrength(_smoothing);
+			angMotor.configMotionSCurveStrength(_smoothing);
 
 			System.out.println("Smoothing is set to: " + _smoothing);
 		}
 		_pov = pov; /* save the pov value for next time */
 
 		/* Instrumentation */
-		Instrum.Process(_talon, _sb);
+		Instrum.Process(angMotor, _sb);
 	}
-}
+
+	private double getFeedForward(double horizontalHoldOutput) {
+		double m_CurrentAngle = angMotor.getSelectedSensorPosition();
+
+		double theta = Math.toRadians(90 - m_CurrentAngle);
+
+		double gravityCompensation = Math.cos(theta);
+
+		double arb_feedForward = gravityCompensation * horizontalHoldOutput;
+
+		return arb_feedForward;
+	}
+
+	public void extendArmUsingPower(double speed) {
+     
+		if (speed > 0 && extEncoder.getDistance() > Constants.maxExtensionEncoderValue) {
+	
+		  leftExtMotor.set(ControlMode.PercentOutput, 0);
+		  rightExtMotor.set(ControlMode.PercentOutput, 0);
+	
+		} else if(speed < 0 && extEncoder.getDistance() < Constants.minExtensionEncoderValue) {
+	
+		  leftExtMotor.set(ControlMode.PercentOutput, 0);
+		  rightExtMotor.set(ControlMode.PercentOutput, 0);
+			
+		} else {
+	
+		  leftExtMotor.set(ControlMode.PercentOutput, speed);
+		  rightExtMotor.set(ControlMode.PercentOutput, speed);
+	
+		}
+		
+	  }
+	
+	  public void extendArmUsingPowerNoLimit(double speed) {
+		 
+		leftExtMotor.set(ControlMode.PercentOutput, speed);
+		rightExtMotor.set(ControlMode.PercentOutput, speed);
+	 
+	  }
+	
+	  public void setExtensionOffset() {
+	
+		extEncoder.setPositionOffset(extEncoder.getDistance());
+	
+	  }
+	
+	  public void resetExtensionEncoder() {
+	
+		extEncoder.reset();
+	
+	  }
+	}
