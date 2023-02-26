@@ -59,6 +59,7 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.Joystick;
 
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonFX;
@@ -69,8 +70,13 @@ import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
 import frc.robot.sim.PhysicsSim;
 
 public class Robot extends TimedRobot {
+
+	/* Setpoints */
+	double m_targetMin = 33;
+	double m_targetMax = -19.6;
+
 	/* Hardware */
-	WPI_TalonFX _talon = new WPI_TalonFX(1, "rio"); // Rename "rio" to match the CANivore device name if using a CANivore
+	WPI_TalonFX _talon = new WPI_TalonFX(15, "rio"); // Rename "rio" to match the CANivore device name if using a CANivore
 	Joystick _joy = new Joystick(0);
 
 	/* Used to build string throughout loop */
@@ -135,11 +141,16 @@ public class Robot extends TimedRobot {
 		_talon.config_kD(Constants.kSlotIdx, Constants.kGains.kD, Constants.kTimeoutMs);
 
 		/* Set acceleration and vcruise velocity - see documentation */
-		_talon.configMotionCruiseVelocity(15000, Constants.kTimeoutMs);
-		_talon.configMotionAcceleration(6000, Constants.kTimeoutMs);
+		_talon.configMotionCruiseVelocity(0, Constants.kTimeoutMs);
+		_talon.configMotionAcceleration(0, Constants.kTimeoutMs);
 
 		/* Zero the sensor once on robot boot up */
-		_talon.setSelectedSensorPosition(0, Constants.kPIDLoopIdx, Constants.kTimeoutMs);
+		//_talon.setSelectedSensorPosition(0, Constants.kPIDLoopIdx, Constants.kTimeoutMs);
+
+		_talon.configFeedbackNotContinuous(true, Constants.kTimeoutMs);
+
+		_talon.config_IntegralZone(Constants.kSlotIdx, 3);
+		
 	}
 
 	/**
@@ -161,6 +172,11 @@ public class Robot extends TimedRobot {
 		_sb.append("\tVel:");
 		_sb.append(_talon.getSelectedSensorVelocity(Constants.kPIDLoopIdx));
 
+		_sb.append("\t Position:");
+		_sb.append(_talon.getSelectedSensorPosition());
+		SmartDashboard.putNumber("Lift Position", _talon.getSelectedSensorPosition());
+
+
 		/**
 		 * Perform Motion Magic when Button 1 is held, else run Percent Output, which can
 		 * be used to confirm hardware setup.
@@ -169,7 +185,7 @@ public class Robot extends TimedRobot {
 			/* Motion Magic */
 
 			/* 2048 ticks/rev * 10 Rotations in either direction */
-			double targetPos = rghtYstick * 2048 * 10.0;
+			double targetPos = m_targetMin;
 			_talon.set(TalonFXControlMode.MotionMagic, targetPos);
 
 			/* Append more signals to print when in speed mode */
@@ -177,11 +193,24 @@ public class Robot extends TimedRobot {
 			_sb.append(_talon.getClosedLoopError(Constants.kPIDLoopIdx));
 			_sb.append("\ttrg:");
 			_sb.append(targetPos);
+
+		} else if (_joy.getRawButton(4)) {
+		
+			double targetPos = m_targetMax;
+			_talon.set(TalonFXControlMode.MotionMagic, targetPos);
+
+			/* Append more signals to print when in speed mode */
+			_sb.append("\terr:");
+			_sb.append(_talon.getClosedLoopError(Constants.kPIDLoopIdx));
+			_sb.append("\ttrg:");
+			_sb.append(targetPos);
+			
 		} else {
 			/* Percent Output */
 
 			_talon.set(TalonFXControlMode.PercentOutput, leftYstick);
 		}
+		
 		if (_joy.getRawButton(2)) {
 			/* Zero sensor positions */
 			_talon.setSelectedSensorPosition(0);
