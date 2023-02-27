@@ -79,13 +79,13 @@ public class Robot extends TimedRobot {
 	XboxController xbox;
 
 	/* Setpoints */
-	double m_targetMin = 218794;
+	double m_targetMin = 311993.0;
 	double m_targetMax = 0;
 
 	/* Hardware */
-	TalonFX leftExtMotor = new TalonFX(2);
-	TalonFX rightExtMotor = new TalonFX(13);
-	TalonFX angMotor = new TalonFX(15); // Rename "rio" to match the CANivore device name if using a CANivore
+	WPI_TalonFX leftExtMotor = new WPI_TalonFX(2);
+	WPI_TalonFX rightExtMotor = new WPI_TalonFX(13);
+	WPI_TalonFX angMotor = new WPI_TalonFX(15); // Rename "rio" to match the CANivore device name if using a CANivore
 	Joystick _joy = new Joystick(0);
 	DutyCycleEncoder extEncoder = new DutyCycleEncoder(9);
 
@@ -159,8 +159,8 @@ public class Robot extends TimedRobot {
 		angMotor.config_kD(Constants.kSlotIdx, Constants.kGains.kD, Constants.kTimeoutMs);
 
 		/* Set acceleration and vcruise velocity - see documentation */
-		angMotor.configMotionCruiseVelocity(0, Constants.kTimeoutMs);
-		angMotor.configMotionAcceleration(0, Constants.kTimeoutMs);
+		angMotor.configMotionCruiseVelocity(15848, Constants.kTimeoutMs);
+		angMotor.configMotionAcceleration(15848.25, Constants.kTimeoutMs);
 
 		/* Zero the sensor once on robot boot up */
 		//_talon.setSelectedSensorPosition(0, Constants.kPIDLoopIdx, Constants.kTimeoutMs);
@@ -193,22 +193,23 @@ public class Robot extends TimedRobot {
 		_sb.append("\t Position:");
 		_sb.append(angMotor.getSelectedSensorPosition());
 		SmartDashboard.putNumber("Lift Position", angMotor.getSelectedSensorPosition());
+		SmartDashboard.putNumber("Extension", extEncoder.getDistance());
 
 		/* Arbirrary Feed Forward */
 		//double horizontalHoldOutput = 0;
 		//double arbfeedFwdTerm = getFeedForward(horizontalHoldOutput);
 
 		/* Slide Extension */
-			/*if (xbox.getRightY()) {
+			if (_joy.getRawButton(4)) {
 	  
-				extendArmUsingPowerNoLimit(-xbox.getRightY() / 1);
+				extendArmUsingPowerNoLimit(rghtYstick / 1);
 				resetExtensionEncoder();
 		
 			} else {
 		
-				extendArmUsingPower(-xbox.getRightY() / 1);
+				extendArmUsingPower(rghtYstick / 1);
 		
-			}*/
+			}
 
 
 		/**
