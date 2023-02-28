@@ -60,6 +60,7 @@ package frc.robot;
 
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.DutyCycleEncoder;
 import edu.wpi.first.wpilibj.Joystick;
@@ -78,9 +79,11 @@ public class Robot extends TimedRobot {
 
 	XboxController xbox;
 
+	DutyCycleEncoder angleEncoder;
+
 	/* Setpoints */
-	double m_targetMin = 311993.0;
-	double m_targetMax = 0;
+	double m_targetMin = 0.3179759329493983;
+	double m_targetMax = 0.4448812361220309;
 
 	/* Hardware */
 	WPI_TalonFX leftExtMotor = new WPI_TalonFX(2);
@@ -114,6 +117,8 @@ public class Robot extends TimedRobot {
 		leftExtMotor.setNeutralMode(NeutralMode.Brake);
 		rightExtMotor.setNeutralMode(NeutralMode.Brake);
 		angMotor.setNeutralMode(NeutralMode.Brake);
+
+		angleEncoder = new DutyCycleEncoder(0);
 
 		angMotor.configFactoryDefault();
 
@@ -153,14 +158,14 @@ public class Robot extends TimedRobot {
 
 		/* Set Motion Magic gains in slot0 - see documentation */
 		angMotor.selectProfileSlot(Constants.kSlotIdx, Constants.kPIDLoopIdx);
-		angMotor.config_kF(Constants.kSlotIdx, Constants.kGains.kF, Constants.kTimeoutMs);
-		angMotor.config_kP(Constants.kSlotIdx, Constants.kGains.kP, Constants.kTimeoutMs);
-		angMotor.config_kI(Constants.kSlotIdx, Constants.kGains.kI, Constants.kTimeoutMs);
-		angMotor.config_kD(Constants.kSlotIdx, Constants.kGains.kD, Constants.kTimeoutMs);
+		angMotor.config_kF(Constants.kSlotIdx, SmartDashboard.getNumber("Feedforward Gain", 0.05), Constants.kTimeoutMs);
+		angMotor.config_kP(Constants.kSlotIdx, SmartDashboard.getNumber("P Gain", 0), Constants.kTimeoutMs);
+		angMotor.config_kI(Constants.kSlotIdx, SmartDashboard.getNumber("I Gain", 0), Constants.kTimeoutMs);
+		angMotor.config_kD(Constants.kSlotIdx, SmartDashboard.getNumber("D Gain", 0), Constants.kTimeoutMs);
 
 		/* Set acceleration and vcruise velocity - see documentation */
-		angMotor.configMotionCruiseVelocity(15848, Constants.kTimeoutMs);
-		angMotor.configMotionAcceleration(15848.25, Constants.kTimeoutMs);
+		angMotor.configMotionCruiseVelocity(15314, Constants.kTimeoutMs);
+		angMotor.configMotionAcceleration(15314.25, Constants.kTimeoutMs);
 
 		/* Zero the sensor once on robot boot up */
 		//_talon.setSelectedSensorPosition(0, Constants.kPIDLoopIdx, Constants.kTimeoutMs);
@@ -171,10 +176,17 @@ public class Robot extends TimedRobot {
 		
 	}
 
+	@Override
+	public void teleopInit() {
+		angMotor.set(TalonFXControlMode.PercentOutput, 0);
+		SmartDashboard.putNumber("Feedforward", 0.048);
+	}
+
 	/**
 	 * This function is called periodically during operator control
 	 */
 	public void teleopPeriodic() {
+ 
 		/* Get gamepad axis - forward stick is positive */
 		double leftYstick = -1.0 * _joy.getY(); /* left-side Y for Xbox360Gamepad */
 		double rghtYstick = -1.0 * _joy.getRawAxis(5); /* right-side Y for Xbox360Gamepad */
@@ -191,8 +203,8 @@ public class Robot extends TimedRobot {
 		_sb.append(angMotor.getSelectedSensorVelocity(Constants.kPIDLoopIdx));
 
 		_sb.append("\t Position:");
-		_sb.append(angMotor.getSelectedSensorPosition());
-		SmartDashboard.putNumber("Lift Position", angMotor.getSelectedSensorPosition());
+		_sb.append(angleEncoder.getAbsolutePosition());
+		SmartDashboard.putNumber("Lift Position", angleEncoder.getAbsolutePosition());
 		SmartDashboard.putNumber("Extension", extEncoder.getDistance());
 
 		/* Arbirrary Feed Forward */
@@ -200,7 +212,7 @@ public class Robot extends TimedRobot {
 		//double arbfeedFwdTerm = getFeedForward(horizontalHoldOutput);
 
 		/* Slide Extension */
-			if (_joy.getRawButton(4)) {
+			if (_joy.getRawButton(10)) {
 	  
 				extendArmUsingPowerNoLimit(rghtYstick / 1);
 				resetExtensionEncoder();
@@ -248,7 +260,7 @@ public class Robot extends TimedRobot {
 
 		if (_joy.getRawButton(2)) {
 			/* Zero sensor positions */
-			angMotor.setSelectedSensorPosition(0);
+			//angMotor.setSelectedSensorPosition(0);
 		}
 
 		int pov = _joy.getPOV();
@@ -278,7 +290,7 @@ public class Robot extends TimedRobot {
 	}
 
 	private double getFeedForward(double horizontalHoldOutput) {
-		double m_CurrentAngle = angMotor.getSelectedSensorPosition();
+		double m_CurrentAngle = angleEncoder.getAbsolutePosition();
 
 		double theta = Math.toRadians(90 - m_CurrentAngle);
 
@@ -291,12 +303,12 @@ public class Robot extends TimedRobot {
 
 	public void extendArmUsingPower(double speed) {
      
-		if (speed > 0 && extEncoder.getDistance() > Constants.maxExtensionEncoderValue) {
+		if (speed > 0 && getExtensionEncoderInches() > Constants.maxExtensionInchValue) {
 	
 		  leftExtMotor.set(ControlMode.PercentOutput, 0);
 		  rightExtMotor.set(ControlMode.PercentOutput, 0);
 	
-		} else if(speed < 0 && extEncoder.getDistance() < Constants.minExtensionEncoderValue) {
+		} else if(speed < 0 && getExtensionEncoderInches() < Constants.minExtensionInchValue) {
 	
 		  leftExtMotor.set(ControlMode.PercentOutput, 0);
 		  rightExtMotor.set(ControlMode.PercentOutput, 0);
@@ -307,6 +319,9 @@ public class Robot extends TimedRobot {
 		  rightExtMotor.set(ControlMode.PercentOutput, speed);
 	
 		}
+	
+		leftExtMotor.set(ControlMode.PercentOutput, speed);
+		rightExtMotor.set(ControlMode.PercentOutput, speed);
 		
 	  }
 	
@@ -315,6 +330,13 @@ public class Robot extends TimedRobot {
 		leftExtMotor.set(ControlMode.PercentOutput, speed);
 		rightExtMotor.set(ControlMode.PercentOutput, speed);
 	 
+	  }
+
+	  public double getExtensionEncoderInches(){
+    
+		double encoderInches = extEncoder.getDistance() * 1.5 * Math.PI;
+	
+		return encoderInches + Constants.extOffset;
 	  }
 	
 	  public void setExtensionOffset() {
