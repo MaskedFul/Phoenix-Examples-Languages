@@ -70,6 +70,7 @@ import com.ctre.phoenix.motorcontrol.can.WPI_TalonFX;
 import com.ctre.phoenix.motorcontrol.TalonFXControlMode;
 import com.ctre.phoenix.motorcontrol.TalonFXFeedbackDevice;
 import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.DemandType;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
 
@@ -82,8 +83,8 @@ public class Robot extends TimedRobot {
 	DutyCycleEncoder angleEncoder;
 
 	/* Setpoints */
-	double m_targetMin = 0.3179759329493983;
-	double m_targetMax = 0.4448812361220309;
+	double m_targetMin = -439610.0;
+	double m_targetMax = 293550.0;
 
 	/* Hardware */
 	WPI_TalonFX leftExtMotor = new WPI_TalonFX(2);
@@ -179,7 +180,7 @@ public class Robot extends TimedRobot {
 	@Override
 	public void teleopInit() {
 		angMotor.set(TalonFXControlMode.PercentOutput, 0);
-		SmartDashboard.putNumber("Feedforward", 0.048);
+		SmartDashboard.putNumber("Feedforward", 0.05);
 	}
 
 	/**
@@ -192,6 +193,8 @@ public class Robot extends TimedRobot {
 		double rghtYstick = -1.0 * _joy.getRawAxis(5); /* right-side Y for Xbox360Gamepad */
 		if (Math.abs(leftYstick) < 0.10) { leftYstick = 0; } /* deadband 10% */
 		if (Math.abs(rghtYstick) < 0.10) { rghtYstick = 0; } /* deadband 10% */
+		
+		double currentPos = angleEncoder.getAbsolutePosition();
 
 		/* Get current Talon FX motor output */
 		double motorOutput = angMotor.getMotorOutputPercent();
@@ -203,8 +206,8 @@ public class Robot extends TimedRobot {
 		_sb.append(angMotor.getSelectedSensorVelocity(Constants.kPIDLoopIdx));
 
 		_sb.append("\t Position:");
-		_sb.append(angleEncoder.getAbsolutePosition());
-		SmartDashboard.putNumber("Lift Position", angleEncoder.getAbsolutePosition());
+		_sb.append(angMotor.getSelectedSensorPosition());
+		SmartDashboard.putNumber("Lift Position", angMotor.getSelectedSensorPosition());
 		SmartDashboard.putNumber("Extension", extEncoder.getDistance());
 
 		/* Arbirrary Feed Forward */
@@ -234,6 +237,8 @@ public class Robot extends TimedRobot {
 			/* 2048 ticks/rev * 10 Rotations in either direction */
 			double targetPos = m_targetMin;
 			angMotor.set(TalonFXControlMode.MotionMagic, targetPos);
+			/*if (currentPos > targetPos)
+				angMotor.set(TalonFXControlMode.MotionMagic, targetPos, DemandType.ArbitraryFeedForward, 0.1);*/
 
 			/* Append more signals to print when in speed mode */
 			_sb.append("\terr:");
@@ -245,7 +250,8 @@ public class Robot extends TimedRobot {
 		
 			double targetPos = m_targetMax;
 			angMotor.set(TalonFXControlMode.MotionMagic, targetPos);
-
+			/*if (currentPos < targetPos)
+				angMotor.set(TalonFXControlMode.MotionMagic, targetPos, DemandType.ArbitraryFeedForward, -0.1);*/
 			/* Append more signals to print when in speed mode */
 			_sb.append("\terr:");
 			_sb.append(angMotor.getClosedLoopError(Constants.kPIDLoopIdx));
