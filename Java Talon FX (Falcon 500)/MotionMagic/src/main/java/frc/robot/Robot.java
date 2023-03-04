@@ -83,8 +83,8 @@ public class Robot extends TimedRobot {
 	DutyCycleEncoder angleEncoder;
 
 	/* Setpoints */
-	double m_targetMin = -439610.0;
-	double m_targetMax = 293550.0;
+	double m_targetMin = -727000;
+	double m_targetMax = 18600;
 
 	/* Hardware */
 	WPI_TalonFX leftExtMotor = new WPI_TalonFX(2);
@@ -159,18 +159,18 @@ public class Robot extends TimedRobot {
 
 		/* Set Motion Magic gains in slot0 - see documentation */
 		angMotor.selectProfileSlot(Constants.kSlotIdx, Constants.kPIDLoopIdx);
-		angMotor.config_kF(Constants.kSlotIdx, SmartDashboard.getNumber("Feedforward Gain", 0.05), Constants.kTimeoutMs);
+		angMotor.config_kF(Constants.kSlotIdx, SmartDashboard.getNumber("Feedforward Gain", 0.047), Constants.kTimeoutMs);
 		angMotor.config_kP(Constants.kSlotIdx, SmartDashboard.getNumber("P Gain", 0), Constants.kTimeoutMs);
 		angMotor.config_kI(Constants.kSlotIdx, SmartDashboard.getNumber("I Gain", 0), Constants.kTimeoutMs);
 		angMotor.config_kD(Constants.kSlotIdx, SmartDashboard.getNumber("D Gain", 0), Constants.kTimeoutMs);
 
 		/* Set acceleration and vcruise velocity - see documentation */
-		angMotor.configMotionCruiseVelocity(15314, Constants.kTimeoutMs);
-		angMotor.configMotionAcceleration(15314.25, Constants.kTimeoutMs);
+		angMotor.configMotionCruiseVelocity(21400, Constants.kTimeoutMs);
+		angMotor.configMotionAcceleration(21400, Constants.kTimeoutMs);
 
 		/* Zero the sensor once on robot boot up */
 		//_talon.setSelectedSensorPosition(0, Constants.kPIDLoopIdx, Constants.kTimeoutMs);
-
+		
 		angMotor.configFeedbackNotContinuous(true, Constants.kTimeoutMs);
 
 		angMotor.config_IntegralZone(Constants.kSlotIdx, 3);
@@ -180,7 +180,7 @@ public class Robot extends TimedRobot {
 	@Override
 	public void teleopInit() {
 		angMotor.set(TalonFXControlMode.PercentOutput, 0);
-		SmartDashboard.putNumber("Feedforward", 0.05);
+		angMotor.setSelectedSensorPosition(0);
 	}
 
 	/**
@@ -194,8 +194,6 @@ public class Robot extends TimedRobot {
 		if (Math.abs(leftYstick) < 0.10) { leftYstick = 0; } /* deadband 10% */
 		if (Math.abs(rghtYstick) < 0.10) { rghtYstick = 0; } /* deadband 10% */
 		
-		double currentPos = angleEncoder.getAbsolutePosition();
-
 		/* Get current Talon FX motor output */
 		double motorOutput = angMotor.getMotorOutputPercent();
 
@@ -208,6 +206,7 @@ public class Robot extends TimedRobot {
 		_sb.append("\t Position:");
 		_sb.append(angMotor.getSelectedSensorPosition());
 		SmartDashboard.putNumber("Lift Position", angMotor.getSelectedSensorPosition());
+		SmartDashboard.putNumber("Angle Encoder", angleEncoder.getAbsolutePosition());
 		SmartDashboard.putNumber("Extension", extEncoder.getDistance());
 
 		/* Arbirrary Feed Forward */
@@ -237,9 +236,6 @@ public class Robot extends TimedRobot {
 			/* 2048 ticks/rev * 10 Rotations in either direction */
 			double targetPos = m_targetMin;
 			angMotor.set(TalonFXControlMode.MotionMagic, targetPos);
-			/*if (currentPos > targetPos)
-				angMotor.set(TalonFXControlMode.MotionMagic, targetPos, DemandType.ArbitraryFeedForward, 0.1);*/
-
 			/* Append more signals to print when in speed mode */
 			_sb.append("\terr:");
 			_sb.append(angMotor.getClosedLoopError(Constants.kPIDLoopIdx));
@@ -250,8 +246,6 @@ public class Robot extends TimedRobot {
 		
 			double targetPos = m_targetMax;
 			angMotor.set(TalonFXControlMode.MotionMagic, targetPos);
-			/*if (currentPos < targetPos)
-				angMotor.set(TalonFXControlMode.MotionMagic, targetPos, DemandType.ArbitraryFeedForward, -0.1);*/
 			/* Append more signals to print when in speed mode */
 			_sb.append("\terr:");
 			_sb.append(angMotor.getClosedLoopError(Constants.kPIDLoopIdx));
